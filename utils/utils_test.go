@@ -50,9 +50,9 @@ func TestCancelUDPRoutine(t *testing.T) {
 	// to avoid flaky tests
 	require.Contains(t, []string{"message 1", "message 2", "message 3"}, readMessage())
 	require.Contains(t, []string{"message 1", "message 2", "message 3"}, readMessage())
-	require.Contains(t, []string{"message 1", "message 2", "message 3"}, readMessage())
 
 	dp.Shutdown()
+	require.Contains(t, []string{"message 1", "message 2", "message 3"}, readMessage())
 
 	_ = sendMessage("no more messages should be processed")
 

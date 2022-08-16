@@ -168,6 +168,7 @@ func UDPStoppableRoutine(stopCh <-chan struct{}, name string, decodeFunc decoder
 			if stopped.Load() == false {
 				u.payload = make([]byte, u.size)
 				copy(u.payload, payload[0:u.size])
+				time.Sleep(100 * time.Millisecond)
 				udpDataCh <- u
 			} else {
 				return
