@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/netsampler/goflow2/decoders/netflowlegacy"
@@ -69,6 +70,10 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 
 	var flowMessageSet []*flowmessage.FlowMessage
 	flowMessageSet, err = producer.ProcessMessageNetFlowLegacy(msgDec)
+
+	if len(flowMessageSet) > 0 {
+		fmt.Printf("[GOFLOW] Sequence Number: %s - %d\n", samplerAddress.String(), flowMessageSet[0].SequenceNum)
+	}
 
 	timeTrackStop := time.Now()
 	DecoderTime.With(
