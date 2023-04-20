@@ -74,6 +74,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 	if len(flowMessageSet) > 0 {
 		fmt.Printf("[GOFLOW] Sequence Number: %s - %d\n", samplerAddress.String(), flowMessageSet[0].SequenceNum)
 	}
+	// TODO: detect sequence number gap and send as prometheus metric
 
 	timeTrackStop := time.Now()
 	DecoderTime.With(
