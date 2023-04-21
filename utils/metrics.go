@@ -103,6 +103,13 @@ var (
 		},
 		[]string{"router", "version", "obs_domain_id", "template_id", "type"}, // options/template
 	)
+	NetFlowSequenceDelta = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "flow_process_nf_sequence_delta",
+			Help: "NetFlows sequence delta.",
+		},
+		[]string{"router", "version"},
+	)
 	SFlowStats = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "flow_process_sf_count",
@@ -149,6 +156,7 @@ func init() {
 	prometheus.MustRegister(NetFlowSetStatsSum)
 	prometheus.MustRegister(NetFlowTimeStatsSum)
 	prometheus.MustRegister(NetFlowTemplatesStats)
+	prometheus.MustRegister(NetFlowSequenceDelta)
 
 	prometheus.MustRegister(SFlowStats)
 	prometheus.MustRegister(SFlowErrors)

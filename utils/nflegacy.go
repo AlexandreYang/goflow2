@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/netsampler/goflow2/decoders/netflowlegacy"
@@ -19,6 +20,12 @@ type StateNFLegacy struct {
 	Format    format.FormatInterface
 	Transport transport.TransportInterface
 	Logger    Logger
+
+	// sequenceTracker is used to track missing packets
+	// structure: map[PACKET_SOURCE_ADDR]LAST_SEQUENCE_NUMBER
+	sequenceTracker     map[string]int64
+	sequenceTrackerPrev map[string]int64
+	sequenceTrackerLock *sync.RWMutex
 }
 
 func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
@@ -66,15 +73,52 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 				"type":    "DataFlowSet",
 			}).
 			Add(float64(msgDecConv.Count))
+
+		seqnum := msgDecConv.FlowSequence
+		flowCount := int64(msgDecConv.Count)
+
+		fmt.Printf("[GOFLOW] 1Sequence Number: %s - %d\n", samplerAddress.String(), seqnum)
+		sequenceTrackerKey := samplerAddress.String()
+
+		// TODO: More granular lock location?
+		s.sequenceTrackerLock.Lock()
+		if _, ok := s.sequenceTracker[sequenceTrackerKey]; !ok {
+			s.sequenceTracker[sequenceTrackerKey] = int64(seqnum) - int64(flowCount)
+			s.sequenceTrackerPrev[sequenceTrackerKey] = int64(seqnum) - int64(flowCount)
+		}
+		if _, ok := s.sequenceTracker[sequenceTrackerKey]; ok {
+			prevTracked := s.sequenceTracker[sequenceTrackerKey]
+			numFlows := int64(flowCount)
+			fmt.Printf("[GOFLOW] 2Sequence Number: %s - last=%d, flows=%d, seqnum=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum)
+			fmt.Printf("[GOFLOW] 3trackedFlows=%d\n", prevTracked)
+			fmt.Printf("[GOFLOW] 4numFlows=%d\n", numFlows)
+			fmt.Printf("[GOFLOW] 5seqnum=%d\n", seqnum)
+
+			s.sequenceTracker[sequenceTrackerKey] = prevTracked + numFlows
+			missingFlows := int64(seqnum) - s.sequenceTracker[sequenceTrackerKey]
+			if missingFlows != 0 {
+				fmt.Printf("[GOFLOW] 6Sequence Number: %s - last=%d, flows=%d, seqnum=%d : missing flows=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, missingFlows)
+			}
+			missingFlowPrev := int64(seqnum) - (s.sequenceTrackerPrev[sequenceTrackerKey] + flowCount)
+			if missingFlowPrev != 0 {
+				fmt.Printf("[GOFLOW] 7Sequence Number: %s - last=%d, flows=%d, seqnum=%d : missing flows prev=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, missingFlowPrev)
+			}
+			s.sequenceTrackerPrev[sequenceTrackerKey] = int64(seqnum)
+
+			NetFlowSequenceDelta.With(
+				prometheus.Labels{
+					"router":  key,
+					"version": "5",
+				}).
+				Set(float64(missingFlows))
+		}
+		s.sequenceTrackerLock.Unlock()
+
+		// TODO: detect sequence number gap and send as prometheus metric
 	}
 
 	var flowMessageSet []*flowmessage.FlowMessage
 	flowMessageSet, err = producer.ProcessMessageNetFlowLegacy(msgDec)
-
-	if len(flowMessageSet) > 0 {
-		fmt.Printf("[GOFLOW] Sequence Number: %s - %d\n", samplerAddress.String(), flowMessageSet[0].SequenceNum)
-	}
-	// TODO: detect sequence number gap and send as prometheus metric
 
 	timeTrackStop := time.Now()
 	DecoderTime.With(
@@ -102,9 +146,16 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 	return nil
 }
 
+func (s *StateNFLegacy) initConfig() {
+	s.sequenceTracker = make(map[string]int64)
+	s.sequenceTrackerPrev = make(map[string]int64)
+	s.sequenceTrackerLock = &sync.RWMutex{}
+}
+
 func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
 	if err := s.start(); err != nil {
 		return err
 	}
+	s.initConfig()
 	return UDPStoppableRoutine(s.stopCh, "NetFlowV5", s.DecodeFlow, workers, addr, port, reuseport, s.Logger)
 }
