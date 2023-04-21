@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
 	"time"
 
@@ -14,6 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var MaxNegativeSequenceDifference = 1000
+
 type StateNFLegacy struct {
 	stopper
 
@@ -21,10 +22,9 @@ type StateNFLegacy struct {
 	Transport transport.TransportInterface
 	Logger    Logger
 
-	// sequenceTracker is used to track missing packets
+	// savedSeqTracker is used to track missing packets
 	// structure: map[PACKET_SOURCE_ADDR]LAST_SEQUENCE_NUMBER
-	sequenceTracker     map[string]int64
-	sequenceTrackerPrev map[string]int64
+	savedSeqTracker     map[string]int64
 	sequenceTrackerLock *sync.RWMutex
 }
 
@@ -74,50 +74,14 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 			}).
 			Add(float64(msgDecConv.Count))
 
-		seqnum := msgDecConv.FlowSequence
-		flowCount := int64(msgDecConv.Count)
+		missingFlows := s.countMissingFlows(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
 
-		fmt.Printf("[GOFLOW] 1Sequence Number: %s - %d\n", samplerAddress.String(), seqnum)
-		sequenceTrackerKey := samplerAddress.String()
-
-		// TODO: More granular lock location?
-		s.sequenceTrackerLock.Lock()
-		if _, ok := s.sequenceTracker[sequenceTrackerKey]; !ok {
-			s.sequenceTracker[sequenceTrackerKey] = int64(seqnum) - int64(flowCount)
-			s.sequenceTrackerPrev[sequenceTrackerKey] = int64(seqnum) - int64(flowCount)
-		}
-		if _, ok := s.sequenceTracker[sequenceTrackerKey]; ok {
-			prevTracked := s.sequenceTracker[sequenceTrackerKey]
-			numFlows := int64(flowCount)
-			fmt.Printf("[GOFLOW] 2Sequence Number: %s - last=%d, flows=%d, seqnum=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum)
-			fmt.Printf("[GOFLOW] 3trackedFlows=%d\n", prevTracked)
-			fmt.Printf("[GOFLOW] 4numFlows=%d\n", numFlows)
-			fmt.Printf("[GOFLOW] 5seqnum=%d\n", seqnum)
-
-			s.sequenceTracker[sequenceTrackerKey] = prevTracked + numFlows
-			missingFlows := int64(seqnum) - s.sequenceTracker[sequenceTrackerKey]
-			if missingFlows <= -1000 {
-				s.sequenceTracker[sequenceTrackerKey] = int64(seqnum)
-			}
-			if missingFlows != 0 {
-				fmt.Printf("[GOFLOW] 6Sequence Number: %s - last=%d, flows=%d, seqnum=%d, tracked=%d : missing flows=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, s.sequenceTracker[sequenceTrackerKey], missingFlows)
-			}
-			missingFlowPrev := int64(seqnum) - (s.sequenceTrackerPrev[sequenceTrackerKey] + flowCount)
-			if missingFlowPrev != 0 {
-				fmt.Printf("[GOFLOW] 7Sequence Number: %s - last=%d, flows=%d, seqnum=%d : missing flows prev=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, missingFlowPrev)
-			}
-			s.sequenceTrackerPrev[sequenceTrackerKey] = int64(seqnum)
-
-			NetFlowSequenceDelta.With(
-				prometheus.Labels{
-					"router":  key,
-					"version": "5",
-				}).
-				Set(float64(missingFlows))
-		}
-		s.sequenceTrackerLock.Unlock()
-
-		// TODO: detect sequence number gap and send as prometheus metric
+		NetFlowSequenceDelta.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "5",
+			}).
+			Set(float64(missingFlows))
 	}
 
 	var flowMessageSet []*flowmessage.FlowMessage
@@ -149,9 +113,28 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 	return nil
 }
 
+func (s *StateNFLegacy) countMissingFlows(sequenceTrackerKey string, seqnum uint32, flowCount uint16) int64 {
+	s.sequenceTrackerLock.Lock()
+	if _, ok := s.savedSeqTracker[sequenceTrackerKey]; !ok {
+		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
+	} else {
+		s.savedSeqTracker[sequenceTrackerKey] += int64(flowCount)
+	}
+	missingFlows := int64(seqnum) - s.savedSeqTracker[sequenceTrackerKey]
+
+	// There is likely a sequence number reset when the number of missing flows is negative and very high.
+	// In this case, we save the current sequence number of consider that there is no missing flows.
+	if missingFlows <= -int64(MaxNegativeSequenceDifference) {
+		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
+		missingFlows = 0
+	}
+
+	s.sequenceTrackerLock.Unlock()
+	return missingFlows
+}
+
 func (s *StateNFLegacy) initConfig() {
-	s.sequenceTracker = make(map[string]int64)
-	s.sequenceTrackerPrev = make(map[string]int64)
+	s.savedSeqTracker = make(map[string]int64)
 	s.sequenceTrackerLock = &sync.RWMutex{}
 }
 
