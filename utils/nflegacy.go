@@ -96,11 +96,11 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 
 			s.sequenceTracker[sequenceTrackerKey] = prevTracked + numFlows
 			missingFlows := int64(seqnum) - s.sequenceTracker[sequenceTrackerKey]
-			if missingFlows <= 10000 {
+			if missingFlows <= -1000 {
 				s.sequenceTracker[sequenceTrackerKey] = int64(seqnum)
 			}
 			if missingFlows != 0 {
-				fmt.Printf("[GOFLOW] 6Sequence Number: %s - last=%d, flows=%d, seqnum=%d : missing flows=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, missingFlows)
+				fmt.Printf("[GOFLOW] 6Sequence Number: %s - last=%d, flows=%d, seqnum=%d, tracked=%d : missing flows=%d\n", samplerAddress.String(), prevTracked, numFlows, seqnum, s.sequenceTracker[sequenceTrackerKey], missingFlows)
 			}
 			missingFlowPrev := int64(seqnum) - (s.sequenceTrackerPrev[sequenceTrackerKey] + flowCount)
 			if missingFlowPrev != 0 {
