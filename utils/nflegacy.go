@@ -115,6 +115,8 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 
 func (s *StateNFLegacy) countMissingFlows(sequenceTrackerKey string, seqnum uint32, flowCount uint16) int64 {
 	s.sequenceTrackerLock.Lock()
+	defer s.sequenceTrackerLock.Unlock()
+
 	if _, ok := s.savedSeqTracker[sequenceTrackerKey]; !ok {
 		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
 	} else {
@@ -128,8 +130,6 @@ func (s *StateNFLegacy) countMissingFlows(sequenceTrackerKey string, seqnum uint
 		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
 		missingFlows = 0
 	}
-
-	s.sequenceTrackerLock.Unlock()
 	return missingFlows
 }
 

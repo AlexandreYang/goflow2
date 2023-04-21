@@ -53,6 +53,21 @@ func TestStateNFLegacy_countMissingFlows(t *testing.T) {
 			},
 		},
 		{
+			name: "negative saved sequence tracker",
+			// reported missing flows count can be temporarily negative when udp packet arrive unordered,
+			// when slightly lower sequence number arrives after higher sequence number.
+			savedSeqTracker: map[string]int64{
+				"127.0.01": 1000,
+			},
+			sequenceTrackerKey:   "127.0.01",
+			seqnum:               950,
+			flowCount:            10,
+			expectedMissingFlows: -60,
+			expectedSavedSeqTracker: map[string]int64{
+				"127.0.01": 1010,
+			},
+		},
+		{
 			name: "sequence number reset",
 			savedSeqTracker: map[string]int64{
 				"127.0.01": 9000,
