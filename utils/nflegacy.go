@@ -76,7 +76,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 
 		missingFlows := s.countMissingFlows(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
 
-		NetFlowSequenceDelta.With(
+		NetFlowMissingFlows.With(
 			prometheus.Labels{
 				"router":  key,
 				"version": "5",
