@@ -84,9 +84,9 @@ func TestMissingFlowsTracker_countMissingFlows(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewMissingFlowsTracker(1000)
-			s.savedSeqTracker = tt.savedSeqTracker
-			assert.Equal(t, tt.expectedMissingFlows, s.countMissingFlows(tt.sequenceTrackerKey, tt.seqnum, tt.flowCount))
-			assert.Equal(t, tt.expectedSavedSeqTracker, s.savedSeqTracker)
+			s.packetsCount = tt.savedSeqTracker
+			assert.Equal(t, tt.expectedMissingFlows, s.countMissingPackets(tt.sequenceTrackerKey, tt.seqnum, tt.flowCount))
+			assert.Equal(t, tt.expectedSavedSeqTracker, s.packetsCount)
 		})
 	}
 }

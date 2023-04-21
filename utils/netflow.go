@@ -16,7 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var MaxNegativePacketsSequenceDifference = 1000
+var MaxNegativePacketsSequenceDifference = 100
 
 type TemplateSystem struct {
 	key       string
@@ -66,7 +66,7 @@ type StateNetFlow struct {
 
 	Config              *producer.ProducerConfig
 	configMapped        *producer.ProducerConfigMapped
-	missingFlowsTracker *MissingFlowsTracker
+	missingFlowsTracker *MissingPacketsTracker
 }
 
 func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
@@ -223,7 +223,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 				Observe(float64(timeDiff))
 		}
 		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.SourceId))
-		missingFlows := s.missingFlowsTracker.countMissingFlows(missingFlowsTrackerKey, msgDecConv.SequenceNumber, msgDecConv.Count)
+		missingFlows := s.missingFlowsTracker.countMissingPackets(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
 
 		NetFlowMissingPackets.With(
 			prometheus.Labels{
@@ -326,7 +326,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		}
 
 		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.ObservationDomainId))
-		missingFlows := s.missingFlowsTracker.countMissingFlows(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
+		missingFlows := s.missingFlowsTracker.countMissingPackets(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
 
 		NetFlowMissingPackets.With(
 			prometheus.Labels{

@@ -21,7 +21,7 @@ type StateNFLegacy struct {
 	Transport transport.TransportInterface
 	Logger    Logger
 
-	missingFlowsTracker *MissingFlowsTracker
+	missingFlowsTracker *MissingPacketsTracker
 }
 
 func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
@@ -70,7 +70,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 			}).
 			Add(float64(msgDecConv.Count))
 
-		missingFlows := s.missingFlowsTracker.countMissingFlows(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
+		missingFlows := s.missingFlowsTracker.countMissingPackets(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
 
 		NetFlowMissingFlows.With(
 			prometheus.Labels{
