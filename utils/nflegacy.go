@@ -70,7 +70,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 			}).
 			Add(float64(msgDecConv.Count))
 
-		missingFlows := s.missingFlowsTracker.countMissingPackets(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
+		missingFlows := s.missingFlowsTracker.countMissing(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
 
 		NetFlowMissingFlows.With(
 			prometheus.Labels{
@@ -110,7 +110,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 }
 
 func (s *StateNFLegacy) initConfig() {
-	s.missingFlowsTracker = NewMissingFlowsTracker(MaxNegativeFlowsSequenceDifference)
+	s.missingFlowsTracker = NewMissingPacketsTracker(MaxNegativeFlowsSequenceDifference)
 }
 
 func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport bool) error {

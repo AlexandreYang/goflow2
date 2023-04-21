@@ -223,7 +223,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 				Observe(float64(timeDiff))
 		}
 		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.SourceId))
-		missingFlows := s.missingFlowsTracker.countMissingPackets(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
+		missingFlows := s.missingFlowsTracker.countMissing(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
 
 		NetFlowMissingPackets.With(
 			prometheus.Labels{
@@ -326,7 +326,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		}
 
 		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.ObservationDomainId))
-		missingFlows := s.missingFlowsTracker.countMissingPackets(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
+		missingFlows := s.missingFlowsTracker.countMissing(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
 
 		NetFlowMissingPackets.With(
 			prometheus.Labels{
@@ -380,7 +380,7 @@ func (s *StateNetFlow) InitTemplates() {
 
 func (s *StateNetFlow) initConfig() {
 	s.configMapped = producer.NewProducerConfigMapped(s.Config)
-	s.missingFlowsTracker = NewMissingFlowsTracker(MaxNegativePacketsSequenceDifference)
+	s.missingFlowsTracker = NewMissingPacketsTracker(MaxNegativePacketsSequenceDifference)
 }
 
 func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport bool) error {

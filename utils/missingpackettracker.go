@@ -4,15 +4,15 @@ import (
 	"sync"
 )
 
-// MissingPacketsTracker is used to track missing packets
+// MissingPacketsTracker is used to track missing packets/flows
 type MissingPacketsTracker struct {
-	packetsCount   map[string]int64 // map[SOURCE_ADDR_DOMAIN_KEY]ACTUAL_FLOWS_COUNT
+	packetsCount   map[string]int64 // map[SOURCE_ADDR_DOMAIN_KEY]ACTUAL_FLOWS/PACKET_COUNT
 	packetsCountMu *sync.RWMutex
 
 	maxNegativeSequenceDifference int
 }
 
-func NewMissingFlowsTracker(maxNegativeSequenceDifference int) *MissingPacketsTracker {
+func NewMissingPacketsTracker(maxNegativeSequenceDifference int) *MissingPacketsTracker {
 	return &MissingPacketsTracker{
 		packetsCount:                  make(map[string]int64),
 		packetsCountMu:                &sync.RWMutex{},
@@ -20,22 +20,22 @@ func NewMissingFlowsTracker(maxNegativeSequenceDifference int) *MissingPacketsTr
 	}
 }
 
-func (s *MissingPacketsTracker) countMissingPackets(sequenceTrackerKey string, seqnum uint32, packetCount uint16) int64 {
+func (s *MissingPacketsTracker) countMissing(key string, seqnum uint32, packetOrFlowCount uint16) int64 {
 	s.packetsCountMu.Lock()
 	defer s.packetsCountMu.Unlock()
 
-	if _, ok := s.packetsCount[sequenceTrackerKey]; !ok {
-		s.packetsCount[sequenceTrackerKey] = int64(seqnum)
+	if _, ok := s.packetsCount[key]; !ok {
+		s.packetsCount[key] = int64(seqnum)
 	} else {
-		s.packetsCount[sequenceTrackerKey] += int64(packetCount)
+		s.packetsCount[key] += int64(packetOrFlowCount)
 	}
-	missingFlows := int64(seqnum) - s.packetsCount[sequenceTrackerKey]
+	missingElements := int64(seqnum) - s.packetsCount[key]
 
 	// There is likely a sequence number reset when the number of missing packets is negative and very high.
 	// In this case, we save the current sequence number of consider that there is no missing packets.
-	if missingFlows <= -int64(MaxNegativeFlowsSequenceDifference) {
-		s.packetsCount[sequenceTrackerKey] = int64(seqnum)
-		missingFlows = 0
+	if missingElements <= -int64(s.maxNegativeSequenceDifference) {
+		s.packetsCount[key] = int64(seqnum)
+		missingElements = 0
 	}
-	return missingFlows
+	return missingElements
 }
