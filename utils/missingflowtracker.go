@@ -9,12 +9,15 @@ type MissingFlowsTracker struct {
 	// structure: map[PACKET_SOURCE_ADDR]ACTUAL_FLOWS_COUNT
 	savedSeqTracker     map[string]int64
 	sequenceTrackerLock *sync.RWMutex
+
+	maxNegativeSequenceDifference int
 }
 
-func NewMissingFlowsTracker() *MissingFlowsTracker {
+func NewMissingFlowsTracker(maxNegativeSequenceDifference int) *MissingFlowsTracker {
 	return &MissingFlowsTracker{
-		savedSeqTracker:     make(map[string]int64),
-		sequenceTrackerLock: &sync.RWMutex{},
+		savedSeqTracker:               make(map[string]int64),
+		sequenceTrackerLock:           &sync.RWMutex{},
+		maxNegativeSequenceDifference: maxNegativeSequenceDifference,
 	}
 }
 
@@ -31,7 +34,7 @@ func (s *MissingFlowsTracker) countMissingFlows(sequenceTrackerKey string, seqnu
 
 	// There is likely a sequence number reset when the number of missing flows is negative and very high.
 	// In this case, we save the current sequence number of consider that there is no missing flows.
-	if missingFlows <= -int64(MaxNegativeSequenceDifference) {
+	if missingFlows <= -int64(MaxNegativeFlowsSequenceDifference) {
 		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
 		missingFlows = 0
 	}

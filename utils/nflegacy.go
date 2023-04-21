@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var MaxNegativeSequenceDifference = 1000
+var MaxNegativeFlowsSequenceDifference = 1000
 
 type StateNFLegacy struct {
 	stopper
@@ -110,7 +110,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 }
 
 func (s *StateNFLegacy) initConfig() {
-	s.missingFlowsTracker = NewMissingFlowsTracker()
+	s.missingFlowsTracker = NewMissingFlowsTracker(MaxNegativeFlowsSequenceDifference)
 }
 
 func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport bool) error {

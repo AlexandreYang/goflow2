@@ -16,6 +16,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var MaxNegativePacketsSequenceDifference = 1000
+
 type TemplateSystem struct {
 	key       string
 	templates *netflow.BasicTemplateSystem
@@ -220,6 +222,15 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 				}).
 				Observe(float64(timeDiff))
 		}
+		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.SourceId))
+		missingFlows := s.missingFlowsTracker.countMissingFlows(missingFlowsTrackerKey, msgDecConv.SequenceNumber, msgDecConv.Count)
+
+		NetFlowMissingPackets.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "9",
+			}).
+			Set(float64(missingFlows))
 	case netflow.IPFIXPacket:
 		NetFlowStats.With(
 			prometheus.Labels{
@@ -313,6 +324,16 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 				}).
 				Observe(float64(timeDiff))
 		}
+
+		missingFlowsTrackerKey := key + "|" + strconv.Itoa(int(msgDecConv.ObservationDomainId))
+		missingFlows := s.missingFlowsTracker.countMissingFlows(missingFlowsTrackerKey, msgDecConv.SequenceNumber, 1)
+
+		NetFlowMissingPackets.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "10",
+			}).
+			Set(float64(missingFlows))
 	}
 
 	timeTrackStop := time.Now()
@@ -359,7 +380,7 @@ func (s *StateNetFlow) InitTemplates() {
 
 func (s *StateNetFlow) initConfig() {
 	s.configMapped = producer.NewProducerConfigMapped(s.Config)
-	s.missingFlowsTracker = NewMissingFlowsTracker()
+	s.missingFlowsTracker = NewMissingFlowsTracker(MaxNegativePacketsSequenceDifference)
 }
 
 func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
