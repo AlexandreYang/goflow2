@@ -62,8 +62,9 @@ type StateNetFlow struct {
 	samplinglock *sync.RWMutex
 	sampling     map[string]producer.SamplingRateSystem
 
-	Config       *producer.ProducerConfig
-	configMapped *producer.ProducerConfigMapped
+	Config              *producer.ProducerConfig
+	configMapped        *producer.ProducerConfigMapped
+	missingFlowsTracker *MissingFlowsTracker
 }
 
 func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
@@ -358,6 +359,7 @@ func (s *StateNetFlow) InitTemplates() {
 
 func (s *StateNetFlow) initConfig() {
 	s.configMapped = producer.NewProducerConfigMapped(s.Config)
+	s.missingFlowsTracker = NewMissingFlowsTracker()
 }
 
 func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport bool) error {

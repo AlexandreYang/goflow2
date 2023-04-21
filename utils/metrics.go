@@ -110,6 +110,13 @@ var (
 		},
 		[]string{"router", "version"},
 	)
+	NetFlowMissingPackets = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "flow_process_nf_missing_packets",
+			Help: "NetFlows missing packets.",
+		},
+		[]string{"router", "version"},
+	)
 	SFlowStats = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "flow_process_sf_count",
@@ -157,6 +164,7 @@ func init() {
 	prometheus.MustRegister(NetFlowTimeStatsSum)
 	prometheus.MustRegister(NetFlowTemplatesStats)
 	prometheus.MustRegister(NetFlowMissingFlows)
+	prometheus.MustRegister(NetFlowMissingPackets)
 
 	prometheus.MustRegister(SFlowStats)
 	prometheus.MustRegister(SFlowErrors)

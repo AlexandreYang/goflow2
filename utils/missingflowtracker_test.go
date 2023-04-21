@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestStateNFLegacy_countMissingFlows(t *testing.T) {
+func TestMissingFlowsTracker_countMissingFlows(t *testing.T) {
 	tests := []struct {
 		name                    string
 		sequenceTrackerKey      string
@@ -83,8 +83,7 @@ func TestStateNFLegacy_countMissingFlows(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &StateNFLegacy{}
-			s.initConfig()
+			s := NewMissingFlowsTracker()
 			s.savedSeqTracker = tt.savedSeqTracker
 			assert.Equal(t, tt.expectedMissingFlows, s.countMissingFlows(tt.sequenceTrackerKey, tt.seqnum, tt.flowCount))
 			assert.Equal(t, tt.expectedSavedSeqTracker, s.savedSeqTracker)

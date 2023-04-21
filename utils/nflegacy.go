@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"sync"
 	"time"
 
 	"github.com/netsampler/goflow2/decoders/netflowlegacy"
@@ -22,10 +21,7 @@ type StateNFLegacy struct {
 	Transport transport.TransportInterface
 	Logger    Logger
 
-	// savedSeqTracker is used to track missing packets
-	// structure: map[PACKET_SOURCE_ADDR]LAST_SEQUENCE_NUMBER
-	savedSeqTracker     map[string]int64
-	sequenceTrackerLock *sync.RWMutex
+	missingFlowsTracker *MissingFlowsTracker
 }
 
 func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
@@ -74,7 +70,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 			}).
 			Add(float64(msgDecConv.Count))
 
-		missingFlows := s.countMissingFlows(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
+		missingFlows := s.missingFlowsTracker.countMissingFlows(samplerAddress.String(), msgDecConv.FlowSequence, msgDecConv.Count)
 
 		NetFlowMissingFlows.With(
 			prometheus.Labels{
@@ -113,29 +109,8 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 	return nil
 }
 
-func (s *StateNFLegacy) countMissingFlows(sequenceTrackerKey string, seqnum uint32, flowCount uint16) int64 {
-	s.sequenceTrackerLock.Lock()
-	defer s.sequenceTrackerLock.Unlock()
-
-	if _, ok := s.savedSeqTracker[sequenceTrackerKey]; !ok {
-		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
-	} else {
-		s.savedSeqTracker[sequenceTrackerKey] += int64(flowCount)
-	}
-	missingFlows := int64(seqnum) - s.savedSeqTracker[sequenceTrackerKey]
-
-	// There is likely a sequence number reset when the number of missing flows is negative and very high.
-	// In this case, we save the current sequence number of consider that there is no missing flows.
-	if missingFlows <= -int64(MaxNegativeSequenceDifference) {
-		s.savedSeqTracker[sequenceTrackerKey] = int64(seqnum)
-		missingFlows = 0
-	}
-	return missingFlows
-}
-
 func (s *StateNFLegacy) initConfig() {
-	s.savedSeqTracker = make(map[string]int64)
-	s.sequenceTrackerLock = &sync.RWMutex{}
+	s.missingFlowsTracker = NewMissingFlowsTracker()
 }
 
 func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
