@@ -103,8 +103,8 @@ var (
 		},
 		[]string{"router", "version", "obs_domain_id", "template_id", "type"}, // options/template
 	)
-	NetFlowMissingFlows = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	NetFlowMissingFlows = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
 			Name: "flow_process_nf_missing_flows",
 			Help: "NetFlows missing flows.",
 		},

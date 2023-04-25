@@ -77,7 +77,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 				"router":  key,
 				"version": "5",
 			}).
-			Set(float64(missingFlows))
+			Add(float64(missingFlows))
 	}
 
 	var flowMessageSet []*flowmessage.FlowMessage
